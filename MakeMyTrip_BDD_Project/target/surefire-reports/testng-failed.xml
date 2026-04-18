@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Failed suite [MakeMyTrip Automation Suite]" guice-stage="DEVELOPMENT" verbose="0">
+  <test thread-count="5" name="Full MakeMyTrip Flow - One Browser(failed)" verbose="0">
+    <classes>
+      <class name="cucumberOptions.TestRunnerTest">
+        <methods>
+          <include name="setUpClass"/>
+          <include name="runScenario" invocation-numbers="0"/>
+          <include name="tearDownClass"/>
+        </methods>
+      </class> <!-- cucumberOptions.TestRunnerTest -->
+    </classes>
+  </test> <!-- Full MakeMyTrip Flow - One Browser(failed) -->
+</suite> <!-- Failed suite [MakeMyTrip Automation Suite] -->
