@@ -12,97 +12,88 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * CabPage - Page Object for MakeMyTrip Cabs booking.
+ * CabPage – Page Object for the MakeMyTrip Cabs widget.
  *
- * XPaths validated against the live DOM structure visible in
- * the screenshots (data-cy attributes are stable selectors on MMT).
- *
- * Flow:
- *   1. Click Cabs tab
- *   2. Enter From city (Delhi) → select from autocomplete
- *   3. Enter To city   (Manali) → select from autocomplete
- *   4. Select departure date (June 10)
- *   5. Open Pickup-Time picker → select 10 Hr, 30 min → click APPLY
- *   6. Click SEARCH
- *   7. Apply SUV filter → capture lowest price
+ * XPaths are based on the DOM structure visible in the user-provided screenshots:
+ *   Screenshot 1 → FROM field  (data-cy="OutstationOneWayWidget_57")
+ *   Screenshot 2 → TO field    (data-cy="OutstationOneWayWidget_59")
+ *   Screenshot 3 → Time picker (hour rows, minute rows, APPLY button)
  */
 public class CabPage extends BaseDriver {
 
     private final JavascriptExecutor js;
-    private final WebDriverWait      longWait;  // 20 s – for results page
+    private final WebDriverWait      longWait;   // 25 s – results page
 
     public CabPage(WebDriver driver, WebDriverWait wait) {
         super(driver, wait);
         this.js       = (JavascriptExecutor) driver;
-        this.longWait = new WebDriverWait(driver, Duration.ofSeconds(20));
+        this.longWait = new WebDriverWait(driver, Duration.ofSeconds(25));
         PageFactory.initElements(driver, this);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  Locators  (from DevTools visible in screenshots)
+    //  Locators
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ── Popups ──────────────────────────────────────────────────────────────
     @FindBy(className = "commonModal__close")
     private WebElement closePopup;
 
     @FindBy(xpath = "//img[@alt='minimize']")
     private WebElement minimizeFloat;
 
-    // ── Cabs tab (top nav) ───────────────────────────────────────────────────
-    @FindBy(xpath = "//span[contains(@class,'chCabs')] | //a[contains(@href,'cab')]//li | //li[.//span[contains(text(),'Cabs')]]")
+    // Cabs tab in the top navigation
+    @FindBy(xpath = "//span[contains(@class,'chCabs')]")
     private WebElement cabsTab;
 
-    // ── FROM field ────────────────────────────────────────────────────────────
-    // The container div (data-cy from screenshot 1)
-    @FindBy(xpath = "//div[@data-cy='OutstationOneWayWidget_57'] | //div[contains(@class,'searchCity')]")
-    private WebElement fromCityContainer;
-
-    // The readonly text input that acts as trigger
+    // FROM readonly input (screenshot 1: data-cy="fromCity")
     @FindBy(xpath = "//input[@data-cy='fromCity'] | //input[@id='fromCity']")
     private WebElement fromCityInput;
 
-    // ── TO field ──────────────────────────────────────────────────────────────
-    // Container (data-cy from screenshot 2)
+    // TO container (screenshot 2: data-cy="OutstationOneWayWidget_59")
     @FindBy(xpath = "//div[@data-cy='OutstationOneWayWidget_59'] | //div[contains(@class,'searchToCity')]")
     private WebElement toCityContainer;
 
-    // ── Date Picker ───────────────────────────────────────────────────────────
+    // Departure date field
     @FindBy(id = "departure")
     private WebElement departureDateField;
 
-    @FindBy(xpath = "//div[@class='DayPicker-Caption'] | //div[contains(@class,'DayPicker-Caption')]")
+    // Month caption inside the DayPicker calendar
+    @FindBy(xpath = "//div[contains(@class,'DayPicker-Caption')]")
     private WebElement monthCaption;
 
+    // Next-month arrow in the calendar
     @FindBy(xpath = "//span[contains(@class,'DayPicker-NavButton--next')]")
     private WebElement nextMonthBtn;
 
-    // ── Pickup Time ───────────────────────────────────────────────────────────
+    // Pickup-Time label (opens the time-picker panel)
     @FindBy(xpath = "//label[@for='pickupTime'] | //div[contains(@class,'pickupTime')]")
     private WebElement pickupTimeLabel;
 
-    // ── Search Button ─────────────────────────────────────────────────────────
-    @FindBy(xpath = "//p[@data-cy='onewaySearch']/a | //a[@data-cy='search-btn'] | //button[contains(@class,'search') and contains(text(),'SEARCH')]")
+    // SEARCH button (data-cy from the original project)
+    @FindBy(xpath = "//p[@data-cy='onewaySearch']/a")
     private WebElement searchBtn;
 
-    // ── SUV Filter ────────────────────────────────────────────────────────────
-    // 3rd checkbox in the filter sidebar (SUV is typically 3rd car type)
-    @FindBy(xpath = "//div[contains(@class,'filterSection')]//div[@role='checkbox'][3] | //label[contains(text(),'SUV')]")
+    // SUV filter checkbox (3rd checkbox in the car-type filter)
+    @FindBy(xpath = "//div[contains(@class,'filterSection')]//div[@role='checkbox'][3]")
     private WebElement suvCheckbox;
 
-    // ── Price List ────────────────────────────────────────────────────────────
+    // Price elements on the results page
     @FindBy(xpath = "//*[contains(@class,'cabDetailsCard_price') or contains(@class,'price__')]")
     private List<WebElement> priceElements;
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  Actions
+    //  Popup handling
     // ═══════════════════════════════════════════════════════════════════════
 
     public void handlePopups() {
-        WebDriverWait short3 = new WebDriverWait(driver, Duration.ofSeconds(4));
-        try { short3.until(ExpectedConditions.elementToBeClickable(closePopup)).click(); } catch (Exception ignored) {}
-        try { short3.until(ExpectedConditions.elementToBeClickable(minimizeFloat)).click(); } catch (Exception ignored) {}
+        WebDriverWait s = new WebDriverWait(driver, Duration.ofSeconds(4));
+        try { s.until(ExpectedConditions.elementToBeClickable(closePopup)).click();   } catch (Exception ignored) {}
+        try { s.until(ExpectedConditions.elementToBeClickable(minimizeFloat)).click(); } catch (Exception ignored) {}
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Cabs tab
+    // ═══════════════════════════════════════════════════════════════════════
 
     public void clickCabsTab() {
         try {
@@ -110,42 +101,48 @@ public class CabPage extends BaseDriver {
             System.out.println("[CabPage] Cabs tab clicked.");
         } catch (Exception e) {
             System.out.println("[CabPage] Cabs tab fallback: " + e.getMessage());
-            driver.findElement(By.xpath("//a[contains(@href,'cab')]")).click();
         }
         handlePopups();
     }
 
-    // ── City Entry ──────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  City entry
+    // ═══════════════════════════════════════════════════════════════════════
 
+    /**
+     * Enters FROM (Delhi) and TO (Manali) cities in the cab search widget.
+     * After clicking the readonly FROM input a live-search popup appears;
+     * we type into that popup's input, wait for suggestions, then click the right one.
+     */
     public void enterCities(String from, String to) throws InterruptedException {
 
-        // ── FROM ──
+        // ── FROM ──────────────────────────────────────────────────────────────
         System.out.println("[CabPage] Clicking FROM field...");
         wait.until(ExpectedConditions.elementToBeClickable(fromCityInput)).click();
         Thread.sleep(800);
 
-        // The autocomplete search input appears inside .hsw_autocomplePopup
+        // The popup autocomplete input that appears after clicking the readonly field
         WebElement fromSearch = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(
             "//div[contains(@class,'hsw_autocomplePopup')]//input"
             + " | //input[@autocomplete='off' and @title='From']"
-            + " | //input[@placeholder='Search city']"
+            + " | //input[contains(@placeholder,'From') or contains(@placeholder,'Search')]"
         )));
         fromSearch.clear();
         fromSearch.sendKeys(from);
         System.out.println("[CabPage] Typed FROM: " + from);
         Thread.sleep(1800);
 
-        // Click the first suggestion (Delhi city entry)
+        // Click first suggestion (Delhi)
         wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
             "(//ul[@role='listbox']/li"
             + " | //li[@role='option']"
             + " | //ul[contains(@class,'autoSuggest')]//li"
             + " | //div[contains(@class,'autoSuggest')]//li)[1]"
         ))).click();
-        System.out.println("[CabPage] Delhi suggestion selected.");
-        Thread.sleep(1200);
+        System.out.println("[CabPage] Delhi suggestion clicked.");
+        Thread.sleep(1000);
 
-        // ── TO ──
+        // ── TO ────────────────────────────────────────────────────────────────
         System.out.println("[CabPage] Clicking TO field...");
         wait.until(ExpectedConditions.elementToBeClickable(toCityContainer)).click();
         Thread.sleep(800);
@@ -153,176 +150,211 @@ public class CabPage extends BaseDriver {
         WebElement toSearch = wait.until(ExpectedConditions.visibilityOfElementLocated(By.xpath(
             "//div[contains(@class,'hsw_autocomplePopup')]//input"
             + " | //input[@autocomplete='off' and @title='To']"
-            + " | //input[@placeholder='Search city']"
+            + " | //input[contains(@placeholder,'To') or contains(@placeholder,'Search')]"
         )));
+        // Only type the city name (strip ", Himachal Pradesh" etc.)
+        String toCity = to.contains(",") ? to.split(",")[0].trim() : to;
         toSearch.clear();
-        toSearch.sendKeys(to.contains(",") ? to.split(",")[0].trim() : to);
-        System.out.println("[CabPage] Typed TO: " + to);
+        toSearch.sendKeys(toCity);
+        System.out.println("[CabPage] Typed TO: " + toCity);
         Thread.sleep(1800);
 
-        // Click Manali specifically from the dropdown
-        WebElement manaliOption;
+        // Click Manali option specifically
         try {
-            manaliOption = wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
+            wait.until(ExpectedConditions.elementToBeClickable(By.xpath(
                 "//li[contains(.,'Manali, Himachal Pradesh')]"
                 + " | //li[@role='option'][contains(.,'Manali')]"
                 + " | //p[contains(text(),'Manali')]"
-            )));
+            ))).click();
         } catch (Exception e) {
-            // Fallback: click first suggestion
-            manaliOption = driver.findElement(By.xpath(
+            // Fallback: first suggestion
+            driver.findElement(By.xpath(
                 "(//ul[@role='listbox']/li | //li[@role='option'] | //div[contains(@class,'autoSuggest')]//li)[1]"
-            ));
+            )).click();
         }
-        manaliOption.click();
-        System.out.println("[CabPage] Manali suggestion selected.");
+        System.out.println("[CabPage] Manali suggestion clicked.");
         Thread.sleep(1000);
     }
 
-    // ── Date Selection ─────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Date picker – navigate to June 2026 and click day 10
+    // ═══════════════════════════════════════════════════════════════════════
 
-    /**
-     * Opens the date picker, navigates to targetMonth targetYear, then clicks day 10 (June 10).
-     */
     public void selectDate(String targetMonth, String targetYear) throws InterruptedException {
         System.out.println("[CabPage] Opening date picker...");
         new Actions(driver).moveToElement(departureDateField).click().perform();
         Thread.sleep(600);
 
-        // Navigate to the correct month
-        int attempts = 0;
-        while (attempts < 24) {
+        for (int i = 0; i < 24; i++) {
             String text = wait.until(ExpectedConditions.visibilityOf(monthCaption)).getText().trim();
             String[] parts = text.split("\\s+");
             if (parts[0].equalsIgnoreCase(targetMonth) && parts[1].equals(targetYear)) {
-                System.out.println("[CabPage] Month found: " + text);
+                System.out.println("[CabPage] Month reached: " + text);
                 break;
             }
             nextMonthBtn.click();
             Thread.sleep(400);
-            attempts++;
         }
 
-        // Click June 10 – try multiple aria-label formats used by MMT
+        // Try multiple aria-label formats MakeMyTrip uses for day cells
         boolean clicked = false;
-        String[] ariaVariants = {
-            "Wed Jun 10 2026",
-            "Jun 10 2026",
-            "June 10, 2026",
-            "June 10 2026"
+        String[] variants = {
+            "Wed Jun 10 2026", "Jun 10 2026", "June 10 2026", "June 10, 2026"
         };
-        for (String label : ariaVariants) {
+        for (String label : variants) {
             try {
                 driver.findElement(By.xpath("//div[@aria-label='" + label + "']")).click();
-                System.out.println("[CabPage] Date clicked with aria-label: " + label);
+                System.out.println("[CabPage] Date clicked → " + label);
                 clicked = true;
                 break;
             } catch (Exception ignored) {}
         }
-
-        // Generic fallback: any non-disabled day cell showing "10"
         if (!clicked) {
+            // Generic: any non-disabled day showing "10"
             try {
                 driver.findElement(By.xpath(
                     "//div[contains(@aria-label,'Jun 10') or contains(@aria-label,'June 10')]"
                 )).click();
-                System.out.println("[CabPage] Date clicked via contains aria-label.");
                 clicked = true;
+                System.out.println("[CabPage] Date clicked via contains().");
             } catch (Exception ignored) {}
         }
         if (!clicked) {
             driver.findElement(By.xpath(
-                "//div[@class='DayPicker-Day'][not(contains(@class,'outside'))][not(contains(@class,'disabled'))][text()='10']"
+                "//div[contains(@class,'DayPicker-Day')]"
+                + "[not(contains(@class,'outside'))][not(contains(@class,'disabled'))][text()='10']"
             )).click();
-            System.out.println("[CabPage] Date clicked via day-number text.");
+            System.out.println("[CabPage] Date clicked via day number.");
         }
         Thread.sleep(500);
     }
 
-    // ── Pickup Time ────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Pickup-Time picker  (screenshot 3: "10 Hr", "30 min", APPLY)
+    // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Opens the Pickup-Time picker, selects the given hour and minute, then clicks APPLY.
-     * Based on screenshot 3: hours shown as "10 Hr", minutes as "30 min".
-     *
-     * @param hourLabel   e.g. "10"  → clicks "10 Hr"
-     * @param minuteLabel e.g. "30"  → clicks "30 min"
+     * @param hourLabel   the hour digit string, e.g. "10"
+     * @param minuteLabel the minute digit string, e.g. "30"
      */
     public void selectPickupTimeAndApply(String hourLabel, String minuteLabel) {
-        System.out.println("[CabPage] Opening time picker...");
+        System.out.println("[CabPage] Opening Pickup-Time picker...");
+
+        // Open the time picker panel
         try {
             wait.until(ExpectedConditions.elementToBeClickable(pickupTimeLabel)).click();
             Thread.sleep(800);
         } catch (Exception e) {
-            System.out.println("[CabPage] Pickup-Time click: " + e.getMessage());
+            System.out.println("[CabPage] Time picker open: " + e.getMessage());
         }
 
-        // Select hour  (e.g. "10 Hr")
+        // Select the hour  (e.g. text = "10 Hr")
         try {
             driver.findElement(By.xpath(
                 "//*[normalize-space(text())='" + hourLabel + " Hr']"
-                + " | //*[contains(@class,'hrSlot') and contains(text(),'" + hourLabel + "')]"
+                + " | //*[contains(@class,'hrSlot') and contains(.,'" + hourLabel + "')]"
             )).click();
-            System.out.println("[CabPage] Hour selected: " + hourLabel);
+            System.out.println("[CabPage] Hour clicked: " + hourLabel);
             Thread.sleep(300);
         } catch (Exception e) {
-            System.out.println("[CabPage] Hour select failed: " + e.getMessage());
+            System.out.println("[CabPage] Hour click skipped: " + e.getMessage());
         }
 
-        // Select minute (e.g. "30 min")
+        // Select the minute (e.g. text = "30 min")
         try {
             driver.findElement(By.xpath(
                 "//*[normalize-space(text())='" + minuteLabel + " min']"
-                + " | //*[contains(@class,'minSlot') and contains(text(),'" + minuteLabel + "')]"
+                + " | //*[contains(@class,'minSlot') and contains(.,'" + minuteLabel + "')]"
             )).click();
-            System.out.println("[CabPage] Minute selected: " + minuteLabel);
+            System.out.println("[CabPage] Minute clicked: " + minuteLabel);
             Thread.sleep(300);
         } catch (Exception e) {
-            System.out.println("[CabPage] Minute select failed: " + e.getMessage());
+            System.out.println("[CabPage] Minute click skipped: " + e.getMessage());
         }
 
-        // Click APPLY button (visible in screenshot 3 as a blue "APPLY" button)
+        // Click APPLY  (screenshot 3 shows a blue "APPLY" button in the time picker)
         try {
             driver.findElement(By.xpath(
                 "//div[contains(@class,'applyBtn')]//span"
-                + " | //span[text()='APPLY']"
+                + " | //span[normalize-space(text())='APPLY']"
                 + " | //button[normalize-space(text())='APPLY']"
-                + " | //div[normalize-space(text())='APPLY']"
+                + " | //a[normalize-space(text())='APPLY']"
             )).click();
             System.out.println("[CabPage] APPLY clicked.");
         } catch (Exception e) {
             System.out.println("[CabPage] APPLY click failed: " + e.getMessage());
         }
 
-        try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+        try { Thread.sleep(600); } catch (InterruptedException ignored) {}
     }
 
-    // ── Search ─────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Search
+    // ═══════════════════════════════════════════════════════════════════════
 
     public void clickSearch() {
-        System.out.println("[CabPage] Clicking SEARCH...");
+        System.out.println("[CabPage] Clicking SEARCH button...");
         try {
-            wait.until(ExpectedConditions.elementToBeClickable(searchBtn)).click();
+            // Use JavaScript click to avoid any intercepted-click issues
+            WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(searchBtn));
+            js.executeScript("arguments[0].click();", btn);
         } catch (Exception e) {
-            // Fallback by text
-            driver.findElement(By.xpath("//a[contains(text(),'SEARCH')] | //button[contains(text(),'SEARCH')]")).click();
+            System.out.println("[CabPage] Primary search click failed, trying fallback: " + e.getMessage());
+            try {
+                WebElement fallback = driver.findElement(By.xpath(
+                    "//a[contains(@class,'search') and not(contains(@href,'json'))]"
+                    + " | //button[contains(@class,'search')]"
+                ));
+                js.executeScript("arguments[0].click();", fallback);
+            } catch (Exception e2) {
+                System.out.println("[CabPage] All search click attempts failed: " + e2.getMessage());
+            }
         }
     }
 
-    // ── SUV Filter ─────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Results page – wait for it, apply SUV filter, extract prices
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Waits until the cab results page has actually loaded
+     * (URL changes away from the home/cabs widget page).
+     * Returns false if still on a non-results page after timeout.
+     */
+    public boolean waitForResultsPage() {
+        System.out.println("[CabPage] Waiting for results page to load...");
+        try {
+            // MakeMyTrip cab results URL contains "/cab-booking/" or "/cabs/"
+            longWait.until(d -> {
+                String url = d.getCurrentUrl();
+                return url.contains("cab-booking") || url.contains("/cabs/")
+                       || url.contains("outstation");
+            });
+            // Also wait for at least one card to appear
+            longWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(
+                "//*[contains(@class,'cabDetailsCard') or contains(@class,'cab-card')]"
+            )));
+            System.out.println("[CabPage] Results page loaded. URL: " + driver.getCurrentUrl());
+            return true;
+        } catch (Exception e) {
+            System.out.println("[CabPage] Results page check: " + e.getMessage()
+                + " | Current URL: " + driver.getCurrentUrl());
+            return false;
+        }
+    }
 
     public void selectSUVFilter() {
         System.out.println("[CabPage] Applying SUV filter...");
         try {
-            longWait.until(ExpectedConditions.elementToBeClickable(suvCheckbox));
+            js.executeScript("arguments[0].scrollIntoView({block:'center'});", suvCheckbox);
+            Thread.sleep(500);
             new Actions(driver).moveToElement(suvCheckbox).click().perform();
             System.out.println("[CabPage] SUV filter applied.");
+            Thread.sleep(2000);
         } catch (Exception e) {
-            System.out.println("[CabPage] SUV filter failed: " + e.getMessage());
+            System.out.println("[CabPage] SUV filter not applied: " + e.getMessage());
         }
     }
-
-    // ── Price Capture ──────────────────────────────────────────────────────
 
     public List<Integer> getAllPrices() {
         List<Integer> prices = new ArrayList<>();
@@ -339,8 +371,8 @@ public class CabPage extends BaseDriver {
     }
 
     public int getLowestPrice() {
-        List<Integer> prices = getAllPrices();
-        if (prices.isEmpty()) { System.out.println("[CabPage] No prices found."); return -1; }
-        return prices.stream().min(Integer::compareTo).orElse(-1);
+        List<Integer> p = getAllPrices();
+        if (p.isEmpty()) { System.out.println("[CabPage] No prices found."); return -1; }
+        return p.stream().min(Integer::compareTo).orElse(-1);
     }
 }

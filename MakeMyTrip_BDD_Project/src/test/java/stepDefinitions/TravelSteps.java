@@ -111,9 +111,14 @@ public class TravelSteps {
     @Then("User should see available cab options")
     public void user_should_see_available_cab_options() throws InterruptedException {
         initPages();
-        Thread.sleep(3000);
+        // Wait for the actual results page to load (not just a fixed sleep)
+        boolean loaded = cabs.waitForResultsPage();
+        if (!loaded) {
+            System.out.println("[TravelSteps] WARNING: Results page may not have loaded correctly.");
+            System.out.println("[TravelSteps] Current URL: " + Hooks.driver.getCurrentUrl());
+        }
+        takeScreenshot("CabList_AfterSearch");
         cabs.selectSUVFilter();
-        Thread.sleep(2000);
         takeScreenshot("CabList_SUV");
     }
 
