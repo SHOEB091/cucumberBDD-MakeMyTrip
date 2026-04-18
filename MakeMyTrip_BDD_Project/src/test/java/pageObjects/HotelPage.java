@@ -1,9 +1,6 @@
 package pageObjects;
 
-import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.support.FindBy;
 import org.openqa.selenium.support.PageFactory;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -11,136 +8,101 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import utils.ScreenshotUtil;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * HotelPage - Page Object for the Hotel booking section on MakeMyTrip.
+ * HotelPage – Repurposed for automationexercise.com Category Extraction flow.
  *
- * Scenario: Open guest selector → extract all adult numbers → store in List → display.
+ * Original role : MakeMyTrip Hotel adult-count extraction
+ * Current role  : Navigate to Women > Dress category, extract ALL product names
+ *                 and prices into Lists, and display them.
+ *
+ * Key selectors (automationexercise.com):
+ *   /category_products/1     – Women → Dress  category page
+ *   .productinfo p           – product name inside each card
+ *   .productinfo h2          – product price inside each card
  */
 public class HotelPage extends BaseDriver {
 
-    private final WebDriverWait shortWait;
     private final JavascriptExecutor js;
 
     public HotelPage(WebDriver driver, WebDriverWait wait) {
         super(driver, wait);
+        this.js = (JavascriptExecutor) driver;
         PageFactory.initElements(driver, this);
-        this.shortWait = new WebDriverWait(driver, Duration.ofSeconds(3));
-        this.js        = (JavascriptExecutor) driver;
     }
 
-    // ── Hotels Tab ─────────────────────────────────────────────────────────────
+    // ── Locators ─────────────────────────────────────────────────────────────
 
-    @FindBy(xpath = "//span[contains(@class,'chHotels')]")
-    private WebElement hotelsTab;
+    // All product name elements on the category page
+    @FindBy(css = ".productinfo p")
+    private List<WebElement> nameElements;
 
-    // ── Guest / Adult Selector ─────────────────────────────────────────────────
+    // All product price elements on the category page
+    @FindBy(css = ".productinfo h2")
+    private List<WebElement> priceElements;
 
-    @FindBy(xpath = "//label[@for='guest'] | //div[contains(@class,'guestInfoSection')]")
-    private WebElement guestLabel;
+    // Each complete product card (used to confirm page is loaded)
+    @FindBy(css = ".single-products")
+    private List<WebElement> productCards;
 
-    @FindBy(xpath = "//div[@class='rmsGst']//span[contains(@class,'count') or @class='count']")
-    private List<WebElement> adultCountSpans;
+    // ── Actions ──────────────────────────────────────────────────────────────
 
-    @FindBy(xpath = "//div[@class='rmsGst']/div[1]/div[2]/div[2]/button[2]")
-    private WebElement addAdultBtn;
-
-    @FindBy(xpath = "//div[@class='rmsGst']/div[1]/div[2]/div[2]/span")
-    private WebElement adultCountSpan;
-
-    // ── Actions ────────────────────────────────────────────────────────────────
-
-    public void clickHotelsTab() {
-        try {
-            shortWait.until(ExpectedConditions.elementToBeClickable(hotelsTab)).click();
-            System.out.println("[HotelPage] Navigated to Hotels tab.");
-        } catch (Exception e) {
-            System.out.println("[HotelPage] Hotels tab click issue: " + e.getMessage());
-        }
-    }
-
-    public void openGuestDropdown() throws InterruptedException {
-        try {
-            wait.until(ExpectedConditions.elementToBeClickable(
-                    By.xpath("//label[@for='guest'] | //*[@data-cy='guestLabel']")
-            )).click();
-            Thread.sleep(1500);
-            System.out.println("[HotelPage] Guest dropdown opened.");
-        } catch (Exception e) {
-            System.out.println("[HotelPage] Could not open guest dropdown: " + e.getMessage());
-        }
+    /**
+     * Navigates directly to the Women → Dress category page.
+     * URL pattern: /category_products/1
+     */
+    public void navigateToWomenDress() throws InterruptedException {
+        driver.get("https://automationexercise.com/category_products/1");
+        System.out.println("[CategoryPage] Navigated to Women → Dress category.");
+        wait.until(ExpectedConditions.visibilityOfAllElements(productCards));
+        Thread.sleep(1000);
     }
 
     /**
-     * Extracts all displayed adult-count numbers visible inside the guest selector.
-     * Clicks + repeatedly until disabled to reveal all valid adult numbers (1 through max).
+     * Extracts all product names from the current category page into a List<String>.
      *
-     * @return List of integers representing each adult count that was shown (1..maxAdults)
+     * @return List of product name strings.
      */
-    public List<Integer> extractAllAdultNumbers() throws InterruptedException {
-        List<Integer> adultNumbers = new ArrayList<>();
-
+    public List<String> extractAllProductNames() {
+        List<String> names = new ArrayList<>();
         try {
-            WebElement addBtn = driver.findElement(
-                    By.xpath("//div[@class='rmsGst']/div[1]/div[2]/div[2]/button[2]"));
-            WebElement countEl = driver.findElement(
-                    By.xpath("//div[@class='rmsGst']/div[1]/div[2]/div[2]/span"));
-
-            // start from current count
-            int currentVal = parseNumber(countEl.getText());
-            if (currentVal > 0) adultNumbers.add(currentVal);
-
-            // click + until disabled, collecting each number shown
-            while (addBtn.isEnabled()) {
-                addBtn.click();
-                Thread.sleep(300);
-                currentVal = parseNumber(countEl.getText());
-                if (currentVal > 0 && !adultNumbers.contains(currentVal)) {
-                    adultNumbers.add(currentVal);
-                }
+            wait.until(ExpectedConditions.visibilityOfAllElements(nameElements));
+            for (WebElement el : nameElements) {
+                String name = el.getText().trim();
+                if (!name.isEmpty()) names.add(name);
             }
-
-            System.out.println("[HotelPage] Adult numbers extracted: " + adultNumbers);
-
+            System.out.println("[CategoryPage] Names extracted (" + names.size() + "): " + names);
         } catch (Exception e) {
-            System.out.println("[HotelPage] Error extracting adult numbers: " + e.getMessage());
-
-            // Fallback: scan full page source for numbers near the word "adult"
-            adultNumbers = extractNumbersFromPageSource();
+            System.out.println("[CategoryPage] Name extraction issue: " + e.getMessage());
         }
-
-        return adultNumbers;
+        return names;
     }
 
     /**
-     * Fallback: scan the entire visible page text and extract numbers adjacent to "adult".
+     * Extracts all product prices from the current category page into a List<Integer>.
+     * Prices look like "Rs. 700" – all non-digit characters are stripped.
+     *
+     * @return List of integer prices.
      */
-    private List<Integer> extractNumbersFromPageSource() {
-        List<Integer> found = new ArrayList<>();
-        String pageText = driver.findElement(By.tagName("body")).getText();
-        Pattern pattern = Pattern.compile("(\\d+)\\s*(?:Adult|adult|ADULT)");
-        Matcher matcher = pattern.matcher(pageText);
-        while (matcher.find()) {
-            int num = Integer.parseInt(matcher.group(1));
-            if (!found.contains(num)) found.add(num);
-        }
-        return found;
-    }
-
-    private int parseNumber(String text) {
+    public List<Integer> extractAllProductPrices() {
+        List<Integer> prices = new ArrayList<>();
         try {
-            return Integer.parseInt(text.replaceAll("[^0-9]", "").trim());
-        } catch (NumberFormatException e) {
-            return 0;
+            for (WebElement el : priceElements) {
+                String raw = el.getText().replaceAll("[^0-9]", "");
+                if (!raw.isEmpty()) prices.add(Integer.parseInt(raw));
+            }
+            System.out.println("[CategoryPage] Prices extracted (" + prices.size() + "): " + prices);
+        } catch (Exception e) {
+            System.out.println("[CategoryPage] Price extraction issue: " + e.getMessage());
         }
+        return prices;
     }
 
-    public String captureHotelScreenshot() {
-        return ScreenshotUtil.capture(driver, "Hotel_GuestSelection");
+    public String takeCategoryScreenshot() {
+        String path = ScreenshotUtil.capture(driver, "Category_WomenDress");
+        System.out.println("[CategoryPage] Screenshot saved: " + path);
+        return path;
     }
 }

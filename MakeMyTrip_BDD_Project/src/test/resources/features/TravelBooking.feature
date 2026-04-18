@@ -1,32 +1,29 @@
-Feature: MakeMyTrip End-to-End Travel Validation
+Feature: AutomationExercise E2E Test Suite
 
-  # ONE browser, multiple tabs:
-  #   Tab 1 (main)  → Cab booking: Delhi → Manali, June 10, SUV, lowest price
-  #   Tab 2 (new)   → Gift Card:   Wedding card, invalid email, capture error
-  #   Tab 1 (main)  → Hotels:      Extract adult numbers, display list
+  # Website : https://automationexercise.com  (automation-friendly, no bot detection)
+  # Three flows in ONE browser session:
+  #   Flow 1 – Product Search  → apply category filter → extract & display lowest price
+  #   Flow 2 – Login form      → wrong password        → capture error message + screenshot
+  #   Flow 3 – Category page   → extract all product names & prices into a List
 
-  Scenario: Execute complete workflow for Cabs, Gift Cards, and Hotels
+  Scenario: Execute complete workflow for Product Search, Login Error, and Category Extraction
 
-    # ── TAB 1 : CAB BOOKING ─────────────────────────────────────────────────
-    Given User is on MakeMyTrip Home Page
+    # ── FLOW 1 : PRODUCT SEARCH ──────────────────────────────────────────────
+    Given User opens AutomationExercise home page
 
-    When User navigates to Cabs page
-    And User enters "Delhi" as From location and "Manali,Himachal Pradesh" as To location
-    And User selects departure date "June" "2026"
-    And User selects pickup time "10:30 AM" and clicks Apply
-    And User clicks Search
-    Then User should see available cab options
-    And The lowest cab price should be displayed
+    When User navigates to Products page
+    And User searches for product "Blue Top"
+    Then User should see search results
+    And User applies "Women" category filter
+    And The lowest product price should be displayed
 
-    # ── BACK TO HOME ────────────────────────────────────────────────────────
-    And User returns to Home Page
+    # ── FLOW 2 : LOGIN ERROR  ─────────────────────────────────────────────────
+    When User navigates to the Login page
+    And User enters login email "wronguser@test.com" and password "wrongpass123"
+    And User clicks the Login button
+    Then The login error message should be captured and screenshot taken
 
-    # ── TAB 2 : GIFT CARD (opens new tab automatically) ─────────────────────
-    When User selects Gift Cards and switches to the new tab
-    And User selects the Wedding Gift Card
-    And User enters sender details "Sathvik", "8709390380", "invalid-email@@test"
-    Then User clicks Buy Now and captures a screenshot
-
-    # ── TAB 1 : HOTEL BOOKING ───────────────────────────────────────────────
-    And User checks maximum adult capacity in Hotels
-    Then User takes a screenshot
+    # ── FLOW 3 : CATEGORY PRODUCT EXTRACTION ─────────────────────────────────
+    When User navigates to Women Dress category
+    Then All product names and prices should be extracted into a List
+    And User takes a final screenshot

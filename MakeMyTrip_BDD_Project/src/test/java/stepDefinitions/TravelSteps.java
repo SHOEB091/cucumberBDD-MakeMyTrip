@@ -4,10 +4,8 @@ import io.cucumber.java.en.*;
 import hooks.Hooks;
 import pageObjects.*;
 
-import org.openqa.selenium.By;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
-import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -15,227 +13,182 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * TravelSteps – Step definitions for TravelBooking.feature.
+ * TravelSteps – step definitions for TravelBooking.feature.
  *
- * One browser, three flows:
- *   1. Cabs  – Tab 1
- *   2. Gift  – Tab 2 (MakeMyTrip opens it automatically)
- *   3. Hotels– Tab 1 (switched back to homeId)
+ * Website   : https://automationexercise.com
+ * One browser session, three sequential flows:
+ *   Flow 1 – Product Search   → category filter → lowest price
+ *   Flow 2 – Login page       → wrong credentials → capture error
+ *   Flow 3 – Category page    → extract product names & prices into Lists
  */
 public class TravelSteps {
 
-    private HomePage     home;
-    private CabPage      cabs;
-    private GiftCardPage gift;
-    private HotelPage    hotel;
+    private static final String BASE_URL = "https://automationexercise.com/";
 
-    /** Lazy-init so page objects are created only AFTER @Before has set Hooks.driver. */
+    private HomePage    home;
+    private CabPage     search;   // repurposed: Product Search
+    private GiftCardPage login;   // repurposed: Login Error
+    private HotelPage   category; // repurposed: Category Extraction
+
+    /** Lazy-init – page objects are created only AFTER @Before has set Hooks.driver. */
     private void initPages() {
         if (home == null) {
-            home  = new HomePage(Hooks.driver, Hooks.wait);
-            cabs  = new CabPage(Hooks.driver, Hooks.wait);
-            gift  = new GiftCardPage(Hooks.driver, Hooks.wait);
-            hotel = new HotelPage(Hooks.driver, Hooks.wait);
+            home     = new HomePage(Hooks.driver, Hooks.wait);
+            search   = new CabPage(Hooks.driver, Hooks.wait);
+            login    = new GiftCardPage(Hooks.driver, Hooks.wait);
+            category = new HotelPage(Hooks.driver, Hooks.wait);
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    //  COMMON
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
+    //  FLOW 1 – PRODUCT SEARCH
+    // ═════════════════════════════════════════════════════════════════════════
 
-    @Given("User is on MakeMyTrip Home Page")
-    public void user_is_on_home() {
+    @Given("User opens AutomationExercise home page")
+    public void user_opens_home_page() {
         initPages();
-        Hooks.driver.get("https://www.makemytrip.com/");
-        home.handlePopups();
-        System.out.println("[TravelSteps] Home page loaded.");
+        home.open(BASE_URL);
+        boolean loaded = home.isLoaded();
+        System.out.println("[TravelSteps] Home page loaded: " + loaded);
+        takeScreenshot("01_HomePage");
     }
 
-    @Then("User takes a screenshot")
-    public void take_final_screenshot() {
-        takeScreenshot("Final_Output");
+    @When("User navigates to Products page")
+    public void user_navigates_to_products() {
+        initPages();
+        home.goToProducts();
+        System.out.println("[TravelSteps] Navigated to Products.");
+        takeScreenshot("02_ProductsPage");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    //  TAB 1 – CAB BOOKING
-    // ═══════════════════════════════════════════════════════════════════════
-
-    @When("User navigates to Cabs page")
-    public void user_navigates_to_cabs_page() {
+    @When("User searches for product {string}")
+    public void user_searches_for_product(String keyword) throws InterruptedException {
         initPages();
-        cabs.clickCabsTab();
+        search.searchProduct(keyword);
+        System.out.println("[TravelSteps] Searched: " + keyword);
     }
 
-    @When("User enters {string} as From location and {string} as To location")
-    public void user_enters_locations(String from, String to) throws InterruptedException {
+    @Then("User should see search results")
+    public void user_should_see_search_results() {
         initPages();
-        cabs.enterCities(from, to);
+        boolean found = search.waitForResults();
+        System.out.println("[TravelSteps] Results visible: " + found);
+        takeScreenshot("03_SearchResults");
     }
 
-    @When("User selects departure date {string} {string}")
-    public void user_selects_departure_date(String month, String year) throws InterruptedException {
+    @And("User applies {string} category filter")
+    public void user_applies_category_filter(String category) throws InterruptedException {
         initPages();
-        cabs.selectDate(month, year);
+        search.applyCategoryFilter(category);
+        System.out.println("[TravelSteps] Category filter applied: " + category);
+        takeScreenshot("04_CategoryFiltered");
     }
 
-    /**
-     * Parses "10:30 AM" → hour=10, minute=30, and calls CabPage.selectPickupTimeAndApply().
-     */
-    @When("User selects pickup time {string} and clicks Apply")
-    public void user_selects_pickup_time(String time) {
+    @And("The lowest product price should be displayed")
+    public void the_lowest_product_price_should_be_displayed() {
         initPages();
-        try {
-            // Expected format: "10:30 AM"
-            String[] colonSplit = time.split(":");
-            String hour        = colonSplit[0].trim();                      // "10"
-            String[] minParts  = colonSplit[1].trim().split("\\s+");
-            String minute      = minParts[0].trim();                        // "30"
-            System.out.printf("[TravelSteps] Time to select: %s hr, %s min%n", hour, minute);
-            cabs.selectPickupTimeAndApply(hour, minute);
-        } catch (Exception e) {
-            System.out.println("[TravelSteps] Time parse/select failed, attempting APPLY only: " + e.getMessage());
-            try {
-                Hooks.driver.findElement(By.xpath(
-                    "//div[contains(@class,'applyBtn')]//span | //span[text()='APPLY']"
-                )).click();
-            } catch (Exception ignored) {}
-        }
-    }
-
-    @When("User clicks Search")
-    public void user_clicks_search() {
-        initPages();
-        cabs.clickSearch();
-    }
-
-    @Then("User should see available cab options")
-    public void user_should_see_available_cab_options() throws InterruptedException {
-        initPages();
-        // Wait for the actual results page to load (not just a fixed sleep)
-        boolean loaded = cabs.waitForResultsPage();
-        if (!loaded) {
-            System.out.println("[TravelSteps] WARNING: Results page may not have loaded correctly.");
-            System.out.println("[TravelSteps] Current URL: " + Hooks.driver.getCurrentUrl());
-        }
-        takeScreenshot("CabList_AfterSearch");
-        cabs.selectSUVFilter();
-        takeScreenshot("CabList_SUV");
-    }
-
-    @Then("The lowest cab price should be displayed")
-    public void the_lowest_cab_price_should_be_displayed() {
-        initPages();
-        List<Integer> prices = cabs.getAllPrices();
+        List<Integer> prices = search.getAllPrices();
         System.out.println("╔══════════════════════════════════════════╗");
         if (prices.isEmpty()) {
-            System.out.println("║  No prices extracted (check SUV filter).");
+            System.out.println("║  No prices extracted on filtered page.");
         } else {
             int lowest = prices.stream().min(Integer::compareTo).orElse(-1);
-            System.out.println("║  All prices (INR): " + prices);
-            System.out.println("║  >>> LOWEST PRICE: ₹" + lowest + " <<<");
+            System.out.println("║  All prices (Rs): " + prices);
+            System.out.println("║  >>> LOWEST PRICE: Rs. " + lowest + " <<<");
         }
         System.out.println("╚══════════════════════════════════════════╝");
-        takeScreenshot("CabList_LowestPrice");
+        takeScreenshot("05_LowestPrice");
     }
 
-    @And("User returns to Home Page")
-    public void user_returns_to_home_page() throws InterruptedException {
-        Hooks.driver.get("https://www.makemytrip.com/");
-        try {
-            Hooks.wait.until(ExpectedConditions.visibilityOfElementLocated(By.className("landingContainer")));
-        } catch (Exception ignored) {}
-        // Re-init pages because driver context may have changed
-        home  = new HomePage(Hooks.driver, Hooks.wait);
-        cabs  = new CabPage(Hooks.driver, Hooks.wait);
-        gift  = new GiftCardPage(Hooks.driver, Hooks.wait);
-        hotel = new HotelPage(Hooks.driver, Hooks.wait);
-        home.handlePopups();
-        System.out.println("[TravelSteps] Returned to Home Page.");
-    }
+    // ═════════════════════════════════════════════════════════════════════════
+    //  FLOW 2 – LOGIN ERROR
+    // ═════════════════════════════════════════════════════════════════════════
 
-    // ═══════════════════════════════════════════════════════════════════════
-    //  TAB 2 – GIFT CARD
-    // ═══════════════════════════════════════════════════════════════════════
-
-    @When("User selects Gift Cards and switches to the new tab")
-    public void user_selects_gift_cards() throws InterruptedException {
+    @When("User navigates to the Login page")
+    public void user_navigates_to_login() {
         initPages();
-        gift.clickGiftCardsMenu();
+        Hooks.driver.get("https://automationexercise.com/login");
+        System.out.println("[TravelSteps] Navigated to Login page.");
+        takeScreenshot("06_LoginPage");
+    }
+
+    @And("User enters login email {string} and password {string}")
+    public void user_enters_login_credentials(String email, String password) {
+        initPages();
+        login.enterEmail(email);
+        login.enterPassword(password);
+    }
+
+    @And("User clicks the Login button")
+    public void user_clicks_login_button() {
+        initPages();
+        login.clickLogin();
+    }
+
+    @Then("The login error message should be captured and screenshot taken")
+    public void the_login_error_captured() throws InterruptedException {
+        initPages();
         Thread.sleep(1500);
-        gift.switchToNewTab();
-        // Re-init page objects with the new tab's context
-        home  = new HomePage(Hooks.driver, Hooks.wait);
-        gift  = new GiftCardPage(Hooks.driver, Hooks.wait);
-    }
-
-    @And("User selects the Wedding Gift Card")
-    public void user_selects_wedding_card() throws InterruptedException {
-        initPages();
-        gift.clickWeddingCard();
-    }
-
-    @And("User enters sender details {string}, {string}, {string}")
-    public void user_enters_sender_details(String name, String mobile, String email) throws InterruptedException {
-        initPages();
-        gift.scrollToForm();
-        gift.enterName(name);
-        gift.enterMobile(mobile);
-        gift.enterEmail(email);
-        System.out.println("[TravelSteps] Sender details entered. Email (invalid): " + email);
-    }
-
-    @Then("User clicks Buy Now and captures a screenshot")
-    public void user_clicks_buy_now_and_captures_screenshot() throws InterruptedException {
-        initPages();
-        gift.clickBuyNow();
-        Thread.sleep(2500);
-        // Capture the error/result screen
-        String error = gift.captureErrorMessage();
+        String error = login.captureErrorMessage();
         System.out.println("╔══════════════════════════════════════════╗");
-        System.out.println("║  Error/Result message: " + error);
+        System.out.println("║  Login Error Message: " + error);
         System.out.println("╚══════════════════════════════════════════╝");
-        gift.takeErrorScreenshot();
-        takeScreenshot("GiftCard_BuyNow_Result");
+        login.takeErrorScreenshot();
+        takeScreenshot("07_LoginError");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    //  TAB 1 – HOTELS (switch back to main tab)
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
+    //  FLOW 3 – CATEGORY PRODUCT EXTRACTION
+    // ═════════════════════════════════════════════════════════════════════════
 
-    @And("User checks maximum adult capacity in Hotels")
-    public void hotel_logic() throws InterruptedException {
-        // Switch back to the main/home tab
-        if (Hooks.homeId != null) {
-            Hooks.driver.switchTo().window(Hooks.homeId);
-            System.out.println("[TravelSteps] Switched back to main tab: " + Hooks.homeId);
+    @When("User navigates to Women Dress category")
+    public void user_navigates_to_women_dress() throws InterruptedException {
+        initPages();
+        category.navigateToWomenDress();
+        System.out.println("[TravelSteps] On Women → Dress category page.");
+        takeScreenshot("08_WomenDressCategory");
+    }
+
+    @Then("All product names and prices should be extracted into a List")
+    public void all_products_extracted() {
+        initPages();
+        List<String>  names  = category.extractAllProductNames();
+        List<Integer> prices = category.extractAllProductPrices();
+
+        System.out.println("╔══════════════════════════════════════════╗");
+        System.out.println("║  WOMEN → DRESS CATEGORY – ALL PRODUCTS");
+        System.out.println("╠══════════════════════════════════════════╣");
+        for (int i = 0; i < Math.max(names.size(), prices.size()); i++) {
+            String name  = i < names.size()  ? names.get(i)          : "(no name)";
+            String price = i < prices.size() ? "Rs. " + prices.get(i) : "(no price)";
+            System.out.printf("║  [%2d] %-30s  %s%n", i + 1, name, price);
         }
-        // Re-init page objects for the main tab context
-        home  = new HomePage(Hooks.driver, Hooks.wait);
-        hotel = new HotelPage(Hooks.driver, Hooks.wait);
-
-        home.goToMenu("Hotels");
-        Thread.sleep(1500);
-        hotel.openGuestDropdown();
-        List<Integer> adultNums = hotel.extractAllAdultNumbers();
-        System.out.println("╔══════════════════════════════════════════╗");
-        System.out.println("║  Adult numbers extracted: " + adultNums);
+        System.out.println("╠══════════════════════════════════════════╣");
+        System.out.println("║  Total products: " + Math.max(names.size(), prices.size()));
         System.out.println("╚══════════════════════════════════════════╝");
-        takeScreenshot("Hotels_GuestList");
+
+        category.takeCategoryScreenshot();
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
+    @And("User takes a final screenshot")
+    public void take_final_screenshot() {
+        takeScreenshot("09_Final");
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
     //  HELPER
-    // ═══════════════════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════════════════════
 
     private void takeScreenshot(String fileName) {
         try {
             File src  = ((TakesScreenshot) Hooks.driver).getScreenshotAs(OutputType.FILE);
-            File dest = new File(System.getProperty("user.dir") + "/target/Screenshots/" + fileName + ".png");
+            File dest = new File(System.getProperty("user.dir")
+                        + "/target/Screenshots/" + fileName + ".png");
             if (dest.getParentFile() != null) dest.getParentFile().mkdirs();
             FileUtils.copyFile(src, dest);
-            System.out.println("[TravelSteps] Screenshot: " + dest.getAbsolutePath());
+            System.out.println("[TravelSteps] Screenshot saved: " + dest.getAbsolutePath());
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("[TravelSteps] Screenshot failed: " + e.getMessage());
         }
     }
 }
