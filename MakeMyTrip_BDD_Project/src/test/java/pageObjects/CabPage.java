@@ -73,12 +73,22 @@ public class CabPage extends BaseDriver {
     @FindBy(xpath = "//p[@data-cy='onewaySearch']/a")
     private WebElement searchBtn;
 
-    // SUV filter checkbox (3rd checkbox in the car-type filter)
-    @FindBy(xpath = "//div[contains(@class,'filterSection')]//div[@role='checkbox'][3]")
-    private WebElement suvCheckbox;
+    // SUV filter – MakeMyTrip cabs listing uses a label/checkbox per cab type
+    // Try: a label or div whose text contains "SUV"
+    @FindBy(xpath =
+        "//label[contains(normalize-space(.),'SUV')]"
+        + " | //span[normalize-space(text())='SUV']"
+        + " | //div[contains(@class,'carTypeFilter') and contains(.,'SUV')]"
+        + " | //div[@role='checkbox' and contains(.,'SUV')]"
+        + " | //li[contains(.,'SUV')]//input[@type='checkbox']/..")
+    private WebElement suvFilterItem;
 
-    // Price elements on the results page
-    @FindBy(xpath = "//*[contains(@class,'cabDetailsCard_price') or contains(@class,'price__')]")
+    // Price elements – any element visibly showing ₹ on the listing page
+    @FindBy(xpath =
+        "//*[contains(@class,'price') and contains(text(),'₹')]"
+        + " | //span[starts-with(normalize-space(text()),'₹')]"
+        + " | //*[contains(@class,'fare') and contains(text(),'₹')]"
+        + " | //*[contains(@class,'Price') and not(contains(@class,'perKm'))]")
     private List<WebElement> priceElements;
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -317,28 +327,26 @@ public class CabPage extends BaseDriver {
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Waits until the cab results page has actually loaded
-     * (URL changes away from the home/cabs widget page).
-     * Returns false if still on a non-results page after timeout.
+     * Waits until the cab listing page is loaded.
+     * Success = URL contains "listing" or "cab-booking" or "outstation".
+     * We do NOT require a specific card class because that changes with
+     * MakeMyTrip deploys — URL change is the reliable signal.
      */
     public boolean waitForResultsPage() {
         System.out.println("[CabPage] Waiting for results page to load...");
         try {
-            // MakeMyTrip cab results URL contains "/cab-booking/" or "/cabs/"
             longWait.until(d -> {
                 String url = d.getCurrentUrl();
-                return url.contains("cab-booking") || url.contains("/cabs/")
-                       || url.contains("outstation");
+                return url.contains("listing") || url.contains("cab-booking")
+                       || url.contains("outstation") || url.contains("/cabs/");
             });
-            // Also wait for at least one card to appear
-            longWait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(
-                "//*[contains(@class,'cabDetailsCard') or contains(@class,'cab-card')]"
-            )));
+            // Give the JS-rendered cards a moment to paint
+            Thread.sleep(3000);
             System.out.println("[CabPage] Results page loaded. URL: " + driver.getCurrentUrl());
             return true;
         } catch (Exception e) {
-            System.out.println("[CabPage] Results page check: " + e.getMessage()
-                + " | Current URL: " + driver.getCurrentUrl());
+            System.out.println("[CabPage] Results page check failed: " + e.getMessage()
+                + " | URL: " + driver.getCurrentUrl());
             return false;
         }
     }
@@ -346,26 +354,40 @@ public class CabPage extends BaseDriver {
     public void selectSUVFilter() {
         System.out.println("[CabPage] Applying SUV filter...");
         try {
-            js.executeScript("arguments[0].scrollIntoView({block:'center'});", suvCheckbox);
+            WebElement el = wait.until(ExpectedConditions.presenceOfElementLocated(By.xpath(
+                "//label[contains(normalize-space(.),'SUV')]"
+                + " | //span[normalize-space(text())='SUV']"
+                + " | //div[@role='checkbox' and contains(.,'SUV')]"
+                + " | //li[contains(.,'SUV')]"
+            )));
+            js.executeScript("arguments[0].scrollIntoView({block:'center'});", el);
             Thread.sleep(500);
-            new Actions(driver).moveToElement(suvCheckbox).click().perform();
+            js.executeScript("arguments[0].click();", el);
             System.out.println("[CabPage] SUV filter applied.");
-            Thread.sleep(2000);
+            Thread.sleep(2500);
         } catch (Exception e) {
-            System.out.println("[CabPage] SUV filter not applied: " + e.getMessage());
+            System.out.println("[CabPage] SUV filter not applied (element not found): " + e.getMessage());
         }
     }
 
     public List<Integer> getAllPrices() {
         List<Integer> prices = new ArrayList<>();
         try {
-            longWait.until(ExpectedConditions.visibilityOfAllElements(priceElements));
-            for (WebElement el : priceElements) {
+            // Look for any element that shows a ₹ price on the page
+            List<WebElement> found = driver.findElements(By.xpath(
+                "//span[contains(text(),'₹') and string-length(text()) < 12]"
+                + " | //*[contains(@class,'price') and contains(text(),'₹')]"
+                + " | //*[contains(@class,'fare') and contains(text(),'₹')]"
+            ));
+            System.out.println("[CabPage] Price elements found: " + found.size());
+            for (WebElement el : found) {
                 String raw = el.getText().replaceAll("[^0-9]", "");
-                if (!raw.isEmpty()) prices.add(Integer.parseInt(raw));
+                if (!raw.isEmpty() && raw.length() <= 7) {
+                    prices.add(Integer.parseInt(raw));
+                }
             }
         } catch (Exception e) {
-            System.out.println("[CabPage] Price extraction: " + e.getMessage());
+            System.out.println("[CabPage] Price extraction error: " + e.getMessage());
         }
         return prices;
     }

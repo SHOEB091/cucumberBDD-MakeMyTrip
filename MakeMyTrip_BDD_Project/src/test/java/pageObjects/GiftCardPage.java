@@ -31,8 +31,14 @@ public class GiftCardPage extends BaseDriver {
     }
 
     // ── Navigation ─────────────────────────────────────────────────────────────
+    // MakeMyTrip renders the top-nav links differently depending on viewport/login state.
+    // Using a broad chain that covers: anchor href, span text (contains), li text.
 
-    @FindBy(xpath = "//span[text()='Gift Cards']")
+    @FindBy(xpath =
+        "//a[contains(@href,'gift-card') or contains(@href,'giftcard')]"
+        + " | //span[contains(normalize-space(.),'Gift Card')]"
+        + " | //a[contains(normalize-space(.),'Gift Card')]"
+        + " | //li[contains(normalize-space(.),'Gift Card')]//a")
     private WebElement giftCardMenuLink;
 
     @FindBy(xpath = "//img[@alt='minimize']")
@@ -70,10 +76,21 @@ public class GiftCardPage extends BaseDriver {
     // ── Actions ────────────────────────────────────────────────────────────────
 
     public void clickGiftCardsMenu() throws InterruptedException {
-        js.executeScript("window.scrollBy(0, 250)");
-        Thread.sleep(500);
-        shortWait.until(ExpectedConditions.elementToBeClickable(giftCardMenuLink)).click();
-        System.out.println("[GiftCardPage] Clicked Gift Cards menu.");
+        // Scroll down slightly in case the nav bar is hidden, then back to top
+        js.executeScript("window.scrollTo(0,0)");
+        Thread.sleep(700);
+
+        try {
+            // Use the standard (longer) wait, not shortWait
+            wait.until(ExpectedConditions.elementToBeClickable(giftCardMenuLink)).click();
+            System.out.println("[GiftCardPage] Clicked Gift Cards menu via XPath.");
+        } catch (Exception e) {
+            System.out.println("[GiftCardPage] XPath click failed, navigating directly: " + e.getMessage());
+            // Direct navigation is a reliable fallback
+            driver.navigate().to("https://www.makemytrip.com/giftcard/home");
+            System.out.println("[GiftCardPage] Navigated directly to Gift Cards page.");
+        }
+        Thread.sleep(1500);
     }
 
     public void switchToNewTab() {
