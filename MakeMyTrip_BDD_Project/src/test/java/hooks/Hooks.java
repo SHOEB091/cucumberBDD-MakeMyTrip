@@ -18,20 +18,24 @@ import java.time.Duration;
 /**
  * Hooks - Cucumber lifecycle hooks.
  *
- * Uses ThreadLocal<WebDriver> so that parallel test execution is safe:
- * each thread has its own isolated WebDriver instance.
+ * Uses a simple static WebDriver (no ThreadLocal) since parallel
+ * testing is disabled and all three flows share ONE browser session.
+ *
+ * Flow:
+ *   Tab 1 (homeId) → Cabs search
+ *   Tab 2           → Gift Cards (MakeMyTrip opens this automatically)
+ *   Tab 1 (homeId) → Hotels
  */
 public class Hooks {
 
-    private static final ThreadLocal<WebDriver>     driverThread = new ThreadLocal<>();
-    private static final ThreadLocal<WebDriverWait> waitThread   = new ThreadLocal<>();
-    private static final ThreadLocal<String>        homeIdThread = new ThreadLocal<>();
+    public static WebDriver     driver;
+    public static WebDriverWait wait;
+    public static String        homeId;
 
-    // ── Static accessors used by step definitions ────────────────────────────
-
-    public static WebDriver getDriver()     { return driverThread.get(); }
-    public static WebDriverWait getWait()   { return waitThread.get();   }
-    public static String getHomeId()        { return homeIdThread.get(); }
+    // Backward-compatible getters (used by new step-def classes)
+    public static WebDriver     getDriver()  { return driver;  }
+    public static WebDriverWait getWait()    { return wait;    }
+    public static String        getHomeId()  { return homeId;  }
 
     // ── Cucumber Lifecycle ───────────────────────────────────────────────────
 
@@ -45,50 +49,40 @@ public class Hooks {
         options.addArguments("--disable-popup-blocking");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--start-maximized");
 
         if (ConfigReader.isHeadless()) {
             options.addArguments("--headless=new");
             options.addArguments("--window-size=1920,1080");
         }
 
-        WebDriver driver = new ChromeDriver(options);
+        driver = new ChromeDriver(options);
         driver.manage().window().maximize();
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(ConfigReader.getImplicitWait()));
+        wait   = new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getExplicitWait()));
+        homeId = driver.getWindowHandle();
 
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(ConfigReader.getExplicitWait()));
-
-        driverThread.set(driver);
-        waitThread.set(wait);
-        homeIdThread.set(driver.getWindowHandle());
-
-        System.out.println("[Hooks] Browser started on thread: " + Thread.currentThread().getId());
+        System.out.println("[Hooks] Browser started. Home tab ID: " + homeId);
     }
 
     @After(order = 0)
     public void tearDown(Scenario scenario) {
-        WebDriver driver = getDriver();
-
         if (driver != null) {
-            if (scenario.isFailed() && ConfigReader.screenshotOnFail()) {
+            if (scenario.isFailed()) {
                 byte[] screenshot = ScreenshotUtil.captureAsBytes(driver);
                 if (screenshot.length > 0) {
                     scenario.attach(screenshot, "image/png", "FAILURE_Screenshot");
                 }
-                System.out.println("[Hooks] Failure screenshot attached for scenario: " + scenario.getName());
-            }
-
-            if (!scenario.isFailed() && ConfigReader.screenshotOnPass()) {
+                System.out.println("[Hooks] Failure screenshot attached for: " + scenario.getName());
+            } else {
                 byte[] screenshot = ScreenshotUtil.captureAsBytes(driver);
                 if (screenshot.length > 0) {
                     scenario.attach(screenshot, "image/png", "PASS_Screenshot");
                 }
             }
-
             driver.quit();
-            driverThread.remove();
-            waitThread.remove();
-            homeIdThread.remove();
-            System.out.println("[Hooks] Browser closed on thread: " + Thread.currentThread().getId());
+            driver = null;
+            System.out.println("[Hooks] Browser closed.");
         }
     }
 }

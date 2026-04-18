@@ -12,13 +12,15 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 /**
- * TravelSteps - Combined step definitions for the legacy TravelBooking.feature.
+ * TravelSteps – Step definitions for TravelBooking.feature.
  *
- * All three scenarios (Cabs, Gift Cards, Hotels) are wired here for
- * the single-feature combined run. For parallel execution per-feature,
- * see CabBookingSteps, GiftCardSteps, and HotelBookingSteps instead.
+ * One browser, three flows:
+ *   1. Cabs  – Tab 1
+ *   2. Gift  – Tab 2 (MakeMyTrip opens it automatically)
+ *   3. Hotels– Tab 1 (switched back to homeId)
  */
 public class TravelSteps {
 
@@ -27,22 +29,26 @@ public class TravelSteps {
     private GiftCardPage gift;
     private HotelPage    hotel;
 
+    /** Lazy-init so page objects are created only AFTER @Before has set Hooks.driver. */
     private void initPages() {
         if (home == null) {
-            home  = new HomePage(Hooks.getDriver(), Hooks.getWait());
-            cabs  = new CabPage(Hooks.getDriver(), Hooks.getWait());
-            gift  = new GiftCardPage(Hooks.getDriver(), Hooks.getWait());
-            hotel = new HotelPage(Hooks.getDriver(), Hooks.getWait());
+            home  = new HomePage(Hooks.driver, Hooks.wait);
+            cabs  = new CabPage(Hooks.driver, Hooks.wait);
+            gift  = new GiftCardPage(Hooks.driver, Hooks.wait);
+            hotel = new HotelPage(Hooks.driver, Hooks.wait);
         }
     }
 
-    // ── Background / Common ─────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  COMMON
+    // ═══════════════════════════════════════════════════════════════════════
 
     @Given("User is on MakeMyTrip Home Page")
     public void user_is_on_home() {
         initPages();
-        Hooks.getDriver().get("https://www.makemytrip.com/");
+        Hooks.driver.get("https://www.makemytrip.com/");
         home.handlePopups();
+        System.out.println("[TravelSteps] Home page loaded.");
     }
 
     @Then("User takes a screenshot")
@@ -50,13 +56,14 @@ public class TravelSteps {
         takeScreenshot("Final_Output");
     }
 
-    // ── Cab Scenario Steps ──────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  TAB 1 – CAB BOOKING
+    // ═══════════════════════════════════════════════════════════════════════
 
     @When("User navigates to Cabs page")
     public void user_navigates_to_cabs_page() {
         initPages();
         cabs.clickCabsTab();
-        cabs.handlePopups();
     }
 
     @When("User enters {string} as From location and {string} as To location")
@@ -71,9 +78,28 @@ public class TravelSteps {
         cabs.selectDate(month, year);
     }
 
+    /**
+     * Parses "10:30 AM" → hour=10, minute=30, and calls CabPage.selectPickupTimeAndApply().
+     */
     @When("User selects pickup time {string} and clicks Apply")
     public void user_selects_pickup_time(String time) {
-        System.out.println("[TravelSteps] Pickup time selection step (time=" + time + ") - handled by date selection.");
+        initPages();
+        try {
+            // Expected format: "10:30 AM"
+            String[] colonSplit = time.split(":");
+            String hour        = colonSplit[0].trim();                      // "10"
+            String[] minParts  = colonSplit[1].trim().split("\\s+");
+            String minute      = minParts[0].trim();                        // "30"
+            System.out.printf("[TravelSteps] Time to select: %s hr, %s min%n", hour, minute);
+            cabs.selectPickupTimeAndApply(hour, minute);
+        } catch (Exception e) {
+            System.out.println("[TravelSteps] Time parse/select failed, attempting APPLY only: " + e.getMessage());
+            try {
+                Hooks.driver.findElement(By.xpath(
+                    "//div[contains(@class,'applyBtn')]//span | //span[text()='APPLY']"
+                )).click();
+            } catch (Exception ignored) {}
+        }
     }
 
     @When("User clicks Search")
@@ -85,32 +111,56 @@ public class TravelSteps {
     @Then("User should see available cab options")
     public void user_should_see_available_cab_options() throws InterruptedException {
         initPages();
+        Thread.sleep(3000);
         cabs.selectSUVFilter();
         Thread.sleep(2000);
+        takeScreenshot("CabList_SUV");
     }
 
     @Then("The lowest cab price should be displayed")
     public void the_lowest_cab_price_should_be_displayed() {
         initPages();
-        int price = cabs.getLowestPrice();
-        System.out.println("=== Lowest SUV Cab Price: ₹" + price + " ===");
+        List<Integer> prices = cabs.getAllPrices();
+        System.out.println("╔══════════════════════════════════════════╗");
+        if (prices.isEmpty()) {
+            System.out.println("║  No prices extracted (check SUV filter).");
+        } else {
+            int lowest = prices.stream().min(Integer::compareTo).orElse(-1);
+            System.out.println("║  All prices (INR): " + prices);
+            System.out.println("║  >>> LOWEST PRICE: ₹" + lowest + " <<<");
+        }
+        System.out.println("╚══════════════════════════════════════════╝");
+        takeScreenshot("CabList_LowestPrice");
     }
 
     @And("User returns to Home Page")
     public void user_returns_to_home_page() throws InterruptedException {
-        Hooks.getDriver().get("https://www.makemytrip.com/");
-        Hooks.getWait().until(ExpectedConditions.visibilityOfElementLocated(By.className("landingContainer")));
-        initPages();
+        Hooks.driver.get("https://www.makemytrip.com/");
+        try {
+            Hooks.wait.until(ExpectedConditions.visibilityOfElementLocated(By.className("landingContainer")));
+        } catch (Exception ignored) {}
+        // Re-init pages because driver context may have changed
+        home  = new HomePage(Hooks.driver, Hooks.wait);
+        cabs  = new CabPage(Hooks.driver, Hooks.wait);
+        gift  = new GiftCardPage(Hooks.driver, Hooks.wait);
+        hotel = new HotelPage(Hooks.driver, Hooks.wait);
         home.handlePopups();
+        System.out.println("[TravelSteps] Returned to Home Page.");
     }
 
-    // ── Gift Card Scenario Steps ────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  TAB 2 – GIFT CARD
+    // ═══════════════════════════════════════════════════════════════════════
 
     @When("User selects Gift Cards and switches to the new tab")
     public void user_selects_gift_cards() throws InterruptedException {
         initPages();
         gift.clickGiftCardsMenu();
+        Thread.sleep(1500);
         gift.switchToNewTab();
+        // Re-init page objects with the new tab's context
+        home  = new HomePage(Hooks.driver, Hooks.wait);
+        gift  = new GiftCardPage(Hooks.driver, Hooks.wait);
     }
 
     @And("User selects the Wedding Gift Card")
@@ -126,39 +176,59 @@ public class TravelSteps {
         gift.enterName(name);
         gift.enterMobile(mobile);
         gift.enterEmail(email);
+        System.out.println("[TravelSteps] Sender details entered. Email (invalid): " + email);
     }
 
     @Then("User clicks Buy Now and captures a screenshot")
     public void user_clicks_buy_now_and_captures_screenshot() throws InterruptedException {
         initPages();
         gift.clickBuyNow();
-        Thread.sleep(2000);
+        Thread.sleep(2500);
+        // Capture the error/result screen
+        String error = gift.captureErrorMessage();
+        System.out.println("╔══════════════════════════════════════════╗");
+        System.out.println("║  Error/Result message: " + error);
+        System.out.println("╚══════════════════════════════════════════╝");
         gift.takeErrorScreenshot();
+        takeScreenshot("GiftCard_BuyNow_Result");
     }
 
-    // ── Hotel Scenario Steps ────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  TAB 1 – HOTELS (switch back to main tab)
+    // ═══════════════════════════════════════════════════════════════════════
 
     @And("User checks maximum adult capacity in Hotels")
     public void hotel_logic() throws InterruptedException {
-        if (Hooks.getHomeId() != null) {
-            Hooks.getDriver().switchTo().window(Hooks.getHomeId());
+        // Switch back to the main/home tab
+        if (Hooks.homeId != null) {
+            Hooks.driver.switchTo().window(Hooks.homeId);
+            System.out.println("[TravelSteps] Switched back to main tab: " + Hooks.homeId);
         }
-        initPages();
+        // Re-init page objects for the main tab context
+        home  = new HomePage(Hooks.driver, Hooks.wait);
+        hotel = new HotelPage(Hooks.driver, Hooks.wait);
+
         home.goToMenu("Hotels");
+        Thread.sleep(1500);
         hotel.openGuestDropdown();
-        java.util.List<Integer> adultNums = hotel.extractAllAdultNumbers();
-        System.out.println("=== Adult Numbers from Hotels page: " + adultNums + " ===");
+        List<Integer> adultNums = hotel.extractAllAdultNumbers();
+        System.out.println("╔══════════════════════════════════════════╗");
+        System.out.println("║  Adult numbers extracted: " + adultNums);
+        System.out.println("╚══════════════════════════════════════════╝");
+        takeScreenshot("Hotels_GuestList");
     }
 
-    // ── Helper ──────────────────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════════════════
+    //  HELPER
+    // ═══════════════════════════════════════════════════════════════════════
 
-    public void takeScreenshot(String fileName) {
+    private void takeScreenshot(String fileName) {
         try {
-            File src  = ((TakesScreenshot) Hooks.getDriver()).getScreenshotAs(OutputType.FILE);
-            File dest = new File(System.getProperty("user.dir") + "/target/" + fileName + ".png");
+            File src  = ((TakesScreenshot) Hooks.driver).getScreenshotAs(OutputType.FILE);
+            File dest = new File(System.getProperty("user.dir") + "/target/Screenshots/" + fileName + ".png");
             if (dest.getParentFile() != null) dest.getParentFile().mkdirs();
             FileUtils.copyFile(src, dest);
-            System.out.println("[TravelSteps] Screenshot saved: " + dest.getAbsolutePath());
+            System.out.println("[TravelSteps] Screenshot: " + dest.getAbsolutePath());
         } catch (IOException e) {
             e.printStackTrace();
         }

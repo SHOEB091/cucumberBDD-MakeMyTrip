@@ -5,21 +5,22 @@ import io.cucumber.testng.CucumberOptions;
 import org.testng.annotations.DataProvider;
 
 /**
- * TestRunnerTest - Combined TestNG runner for ALL features.
+ * TestRunnerTest – Runs TravelBooking.feature (combined all-in-one flow).
  *
- * Use this runner when you want to run the entire test suite in a single
- * TestNG test class (without parallel separation).
+ * ONE browser:
+ *   Tab 1 → Cabs (Delhi → Manali, June 10, 10:30 AM, SUV, lowest price)
+ *   Tab 2 → Gift Cards (Wedding card, invalid email, capture error)
+ *   Tab 1 → Hotels (extract adult numbers into List)
  *
- * For parallel execution across feature files, use testng.xml which
- * references CabBookingRunner, GiftCardRunner, and HotelBookingRunner.
+ * No parallel – sequential execution.
  */
 @CucumberOptions(
-    features = "src/test/resources/features",
-    glue     = { "stepDefinitions", "hooks" },
-    plugin   = {
+    features   = "src/test/resources/features/TravelBooking.feature",
+    glue       = { "stepDefinitions", "hooks" },
+    plugin     = {
         "pretty",
-        "html:target/cucumber-reports/FullSuite_Report.html",
-        "json:target/cucumber-reports/FullSuite_Report.json",
+        "html:target/cucumber-reports/TravelBooking_Report.html",
+        "json:target/cucumber-reports/TravelBooking_Report.json",
         "com.aventstack.extentreports.cucumber.adapter.ExtentCucumberAdapter:"
     },
     monochrome = true,
