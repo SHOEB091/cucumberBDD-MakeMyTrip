@@ -1,0 +1,19 @@
+-------------------------------------------------------------------------------
+Test set: cucumberOptions.TestRunnerTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 47.42 s <<< FAILURE! -- in cucumberOptions.TestRunnerTest
+MakeMyTrip End-to-End Travel Validation.Execute complete workflow for Cabs, Gift Cards, and Hotels -- Time elapsed: 45.90 s <<< ERROR!
+org.openqa.selenium.TimeoutException: 
+Expected condition failed: waiting for visibility of all 0 elements, but no elements were found
+(tried for 5 seconds with 500 milliseconds interval)
+Build info: version: '4.43.0', revision: 'dd0f534'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.2'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 146.0.7680.80, chrome: {chromedriverVersion: 146.0.7680.165 (4b989da09e1..., userDataDir: C:\Users\2474091\AppData\Lo...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:60409}, goog:processID: 18040, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:60409/devtoo..., se:cdpVersion: 146.0.7680.80, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: e35b520e3a82d8eb40902d9adb2fbdc7
+	at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+	at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+	at pageObjects.CabPage.getLowestPrice(CabPage.java:171)
+	at stepDefinitions.TravelSteps.the_lowest_cab_price_should_be_displayed(TravelSteps.java:79)
+	at ✽.The lowest cab price should be displayed(file:///C:/Users/2474091/OneDrive%20-%20Cognizant/Desktop/MakeMyTrip_BDD_Project/src/test/resources/features/TravelBooking.feature:12)
+

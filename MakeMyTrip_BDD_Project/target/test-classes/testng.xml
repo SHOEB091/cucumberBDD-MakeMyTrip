@@ -1,0 +1,28 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+
+<!--
+  TestNG Suite Configuration
+  parallel="tests"  => each <test> block runs in its own thread
+  thread-count="3"  => 3 threads run simultaneously (one per scenario group)
+-->
+<suite name="MakeMyTrip Automation Suite" parallel="tests" thread-count="3" verbose="1">
+
+  <test name="Cab Booking - Delhi to Manali SUV">
+    <classes>
+      <class name="runners.CabBookingRunner"/>
+    </classes>
+  </test>
+
+  <test name="Gift Card - Invalid Email Error Capture">
+    <classes>
+      <class name="runners.GiftCardRunner"/>
+    </classes>
+  </test>
+
+  <test name="Hotel Booking - Adult Guest Extraction">
+    <classes>
+      <class name="runners.HotelBookingRunner"/>
+    </classes>
+  </test>
+
+</suite>

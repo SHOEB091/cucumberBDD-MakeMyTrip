@@ -1,0 +1,28 @@
+[nix]
+channel = "stable-25_05"
+
+[agent]
+expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Build & Compile Project"
+
+[[workflows.workflow]]
+name = "Build & Compile Project"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd MakeMyTrip_BDD_Project && mvn test-compile -q && echo '✔ BUILD SUCCESS — All classes compiled' || echo '✘ BUILD FAILED — Check errors above'"
